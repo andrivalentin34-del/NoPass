@@ -24,3 +24,6 @@ class Notifier:
 
         except Exception as e:
             print(f"❌ Notification failed: {e}")
+
+    def reset(self):
+        self.last_notification = None

@@ -2,8 +2,10 @@
 import time
 import json
 import os
-from grace_period import GracePeriodManager, SystemState
+from grace_period import GracePeriodManager, SystemState, GRACE_PERIOD
 from screen_lock import ScreenLockManager
+from notifier import Notifier
+
 # trying to import the actual library
 try:
     import bluetooth
@@ -175,38 +177,48 @@ def main():
     # Variable to track previous state
     manager = GracePeriodManager()
     lock_manager = ScreenLockManager()
+    notifier = Notifier()
+
 
 
 
     # Main loop - runs infinitely
     try:
         while True:
-            # Display check timestamp
             timestamp = time.strftime("%H:%M:%S")
+
             print(f"[{timestamp}] Checking presence...", end=" ")
 
-            # Check if device is nearby
+
             device_present = is_device_nearby(TARGET_DEVICE_ADDRESS)
 
-            # Detect state transitions
             manager.update(device_present)
+
             print(manager.get_status_display())
 
-            if manager.state == SystemState.LOCKED:
+            if manager.state == SystemState.GRACE:
+                remaining = manager.get_time_remaining()
+                print(f"   ⏳ Time remaining: {remaining:.0f}s")
+                notifier.notify(
+                    "📵 Phone out of range",
+                    f"Screen locks in {GRACE_PERIOD} seconds",
+                    urgency="normal"
+                )
+
+            elif manager.state == SystemState.LOCKED:
                 lock_manager.lock()
-                # Verify if the user put the password
                 if not lock_manager.is_system_locked():
                     manager.state = SystemState.UNLOCKED
                     lock_manager.unlock()
+                    notifier.notify(
+                        "✅ Welcome back!",
+                        "Screen unlocked successfully",
+                        urgency="low"
+                    )
             else:
                 lock_manager.unlock()
+                notifier.reset()
 
-            remaining = manager.get_time_remaining()
-            if remaining is not None:
-                print(f"   ⏳ Time remaining: {remaining:.0f}s")
-
-            # Wait before next check
-            time.sleep(CHECK_INTERVAL)
 
     except KeyboardInterrupt:
         # User pressed Ctrl+C
