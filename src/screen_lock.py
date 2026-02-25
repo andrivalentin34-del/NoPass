@@ -32,7 +32,19 @@ class ScreenLockManager:
             print(f"Command not found {LOCK_COMMAND} make sure is the right distro or the command is installed")
 
 
+
+    def is_system_locked(self):
+        try:
+            result = subprocess.run(["loginctl", "show-session", "self", "--property=LockedHint"], capture_output= True, text = True)
+            return "LockedHint=yes" in result.stdout
+
+        except Exception as e:
+            print(f" Could not check lock state: {e}")
+            return False
+
     def unlock(self):
-        self.is_locked = False
-        print("Screen unlocked state")
+        if not self.is_system_locked():
+
+            self.is_locked = False
+            print("Screen unlocked state")
 

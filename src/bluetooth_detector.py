@@ -2,7 +2,8 @@
 import time
 import json
 import os
-
+from grace_period import GracePeriodManager, SystemState
+from screen_lock import ScreenLockManager
 # trying to import the actual library
 try:
     import bluetooth
@@ -24,8 +25,8 @@ TARGET_DEVICE_ADDRESS = "AA:BB:CC:DD:EE:FF"  # change with your address
 TARGET_DEVICE_NAME = "MY PHONE"
 
 
-
-CHECK_INTERVAL = 5
+# needs to be connected with the GRACE_PERIOD located in grace_period.py
+CHECK_INTERVAL = 2
 
 
 # FUNCTION FOR SIMULATION(MOCK)
@@ -36,7 +37,7 @@ def init_mock_state():
         return
 
  # Fișierul nu există - îl creăm cu starea inițială
-    print(f"📝 Creez fișier de stare: {MOCK_STATE_FILE}")
+    print(f"📝 Creez fisier de stare: {MOCK_STATE_FILE}")
 
     initial_state = {
             "device_connected": False,
@@ -172,7 +173,10 @@ def main():
     print()
 
     # Variable to track previous state
-    device_was_present = False
+    manager = GracePeriodManager()
+    lock_manager = ScreenLockManager()
+
+
 
     # Main loop - runs infinitely
     try:
@@ -185,23 +189,21 @@ def main():
             device_present = is_device_nearby(TARGET_DEVICE_ADDRESS)
 
             # Detect state transitions
-            if device_present and not device_was_present:
-                # Transition: absent → present
-                print("✅ PHONE FOUND! 📱")
-                device_was_present = True
+            manager.update(device_present)
+            print(manager.get_status_display())
 
-            elif device_present and device_was_present:
-                # Still present
-                print("✅ Phone nearby")
-
-            elif not device_present and device_was_present:
-                # Transition: present → absent
-                print("❌ PHONE LOST! 📵")
-                device_was_present = False
-
+            if manager.state == SystemState.LOCKED:
+                lock_manager.lock()
+                # Verify if the user put the password
+                if not lock_manager.is_system_locked():
+                    manager.state = SystemState.UNLOCKED
+                    lock_manager.unlock()
             else:
-                # Still absent
-                print("❌ Phone absent")
+                lock_manager.unlock()
+
+            remaining = manager.get_time_remaining()
+            if remaining is not None:
+                print(f"   ⏳ Time remaining: {remaining:.0f}s")
 
             # Wait before next check
             time.sleep(CHECK_INTERVAL)
