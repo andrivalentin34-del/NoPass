@@ -2,8 +2,7 @@
 
 A Linux system that automatically locks your screen when your phone or Bluetooth device goes out of range, and unlocks it when you return — no password needed while your phone is nearby.
 
-> **Status:** Work in progress — Phase 2 active  
-
+> **Status:** Work in progress — Phase 2 nearly complete  
 > **Language:** Python 3
 
 ---
@@ -27,9 +26,9 @@ The system continuously monitors the proximity of a paired Bluetooth device (pho
 
 ```
 Phone nearby (0-2m)     →  PC stays unlocked
-Phone gone (< timeout)  →  Grace period (warning countdown)
+Phone gone (< timeout)  →  Grace period (warning countdown + desktop notification)
 Phone gone (> timeout)  →  Screen locks automatically
-Phone returns           →  Screen unlocks automatically
+User enters password     →  System detects unlock and resets state
 ```
 
 Password always remains available as a fallback — if you don't have your phone, you can still log in normally.
@@ -43,7 +42,9 @@ bluetooth-unlock/
 ├── src/
 │   ├── bluetooth_detector.py    # Main script - detection loop & entry point
 │   ├── bluetooth_mock.py        # Mock module for testing without hardware
-│   └── grace_period.py          # State machine & timeout logic
+│   ├── grace_period.py          # State machine & timeout logic
+│   ├── screen_lock.py           # Screen lock/unlock via xflock4 & loginctl
+│   └── notifier.py              # Desktop notifications via notify-send
 ├── venv/                        # Python virtual environment (not tracked)
 ├── mock_bluetooth_state.json    # Simulation control file (auto-generated)
 ├── .gitignore
@@ -56,7 +57,7 @@ bluetooth-unlock/
 
 ### Requirements
 
-- Linux (tested on Linux Mint)
+- Linux (tested on Linux Mint XFCE)
 - Python 3.8+
 - Bluetooth adapter (optional — mock mode works without it)
 
@@ -121,6 +122,14 @@ CHECK_INTERVAL        = 2                     # Seconds between checks
 GRACE_PERIOD = 30  # Seconds to wait before locking
 ```
 
+**`screen_lock.py`**
+```python
+LOCK_COMMAND = "xflock4"  # Change based on your desktop environment:
+                           # Cinnamon: "cinnamon-screensaver-command --lock"
+                           # MATE:     "mate-screensaver-command --lock"
+                           # GNOME:    "loginctl lock-session"
+```
+
 ---
 
 ## State Machine Logic
@@ -134,13 +143,17 @@ STARTUP ──────────────► UNLOCKED ◄────�
    │ phone absent           │ phone absent             │ timeout expires
    │                        ▼                          │
    └──────────────────► LOCKED ◄──────────────────────┘
+                            │
+                            │ user enters password
+                            ▼
+                         UNLOCKED
 ```
 
 | State | Description |
 |-------|-------------|
 | `STARTUP` | First check after program launch |
 | `UNLOCKED` | Phone nearby, PC is accessible |
-| `GRACE` | Phone gone, countdown before locking |
+| `GRACE` | Phone gone, countdown before locking + desktop notification sent |
 | `LOCKED` | Screen locked, password required to re-enter |
 
 **Security note:** Once in `LOCKED` state, the phone alone cannot unlock the system. This prevents unauthorized access if both the phone and laptop are stolen together. Re-authentication always requires the system password.
@@ -156,12 +169,13 @@ STARTUP ──────────────► UNLOCKED ◄────�
 - [x] JSON configuration for simulation
 - [x] Git repository & GitHub
 
-### 🔄 Phase 2 — Grace Period & Screen Lock (In Progress)
+### 🔄 Phase 2 — Grace Period & Screen Lock (Nearly Complete)
 - [x] Grace period timeout logic
 - [x] 4-state state machine (STARTUP, UNLOCKED, GRACE, LOCKED)
-- [ ] Integration with Linux screen lock commands (`loginctl`, `xdg-screensaver`)
-- [ ] Desktop notifications (warn before locking)
-- [ ] systemd daemon service
+- [x] Integration with Linux screen lock commands (`xflock4`, `loginctl`)
+- [x] Desktop notifications when phone goes out of range
+- [x] Automatic state reset when user enters password
+- [ ] systemd daemon service (auto-start at boot)
 
 ### 🔜 Phase 3 — System Integration (Planned)
 - [ ] PAM module for authentication at boot
