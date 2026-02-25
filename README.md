@@ -3,7 +3,7 @@
 A Linux system that automatically locks your screen when your phone or Bluetooth device goes out of range, and unlocks it when you return — no password needed while your phone is nearby.
 
 > **Status:** Work in progress — Phase 2 active  
-> **Author:** Year 2 student @ Politehnica  
+
 > **Language:** Python 3
 
 ---
